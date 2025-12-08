@@ -1,6 +1,6 @@
 import { jsxDEV } from "react/jsx-dev-runtime";
-import React, { useMemo, useRef, useEffect } from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig, random } from "remotion";
+import React, { useRef, useEffect } from "react";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, Audio, Sequence } from "remotion";
 const WIDTH = 400;
 const HEIGHT = 600;
 const PLAYER_SIZE = 30;

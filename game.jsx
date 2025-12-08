@@ -12,6 +12,7 @@ function Game({ onGameOver }) {
   const requestRef = useRef();
   const previousTimeRef = useRef();
   const bgmRef = useRef(new Audio("bgm.mp3"));
+  const bgmLeadRef = useRef(new Audio("bgm_lead.mp3"));
   const scoreAudioRef = useRef(new Audio("score.mp3"));
   const crashAudioRef = useRef(new Audio("crash.mp3"));
   const state = useRef({
@@ -358,7 +359,7 @@ function Game({ onGameOver }) {
           false,
           {
             fileName: "<stdin>",
-            lineNumber: 456,
+            lineNumber: 457,
             columnNumber: 7
           },
           this
@@ -384,7 +385,7 @@ function Game({ onGameOver }) {
           true,
           {
             fileName: "<stdin>",
-            lineNumber: 462,
+            lineNumber: 463,
             columnNumber: 7
           },
           this
@@ -407,7 +408,7 @@ function Game({ onGameOver }) {
           false,
           {
             fileName: "<stdin>",
-            lineNumber: 475,
+            lineNumber: 476,
             columnNumber: 7
           },
           this
@@ -418,7 +419,7 @@ function Game({ onGameOver }) {
     true,
     {
       fileName: "<stdin>",
-      lineNumber: 449,
+      lineNumber: 450,
       columnNumber: 5
     },
     this

@@ -123,7 +123,10 @@ const App = () => {
         Player,
         {
           component: ReplayComposition,
-          durationInFrames: 150,
+          durationInFrames: Math.max(
+            1,
+            Math.ceil((replayData?.totalDuration || 1e3) / 1e3 * 30)
+          ),
           fps: 30,
           compositionWidth: 400,
           compositionHeight: 600,
@@ -164,7 +167,7 @@ const App = () => {
         false,
         {
           fileName: "<stdin>",
-          lineNumber: 116,
+          lineNumber: 119,
           columnNumber: 11
         }
       )
@@ -181,7 +184,7 @@ const App = () => {
         }
       ` }, void 0, false, {
       fileName: "<stdin>",
-      lineNumber: 132,
+      lineNumber: 135,
       columnNumber: 7
     })
   ] }, void 0, true, {
@@ -192,6 +195,6 @@ const App = () => {
 };
 createRoot(document.getElementById("app")).render(/* @__PURE__ */ jsxDEV(App, {}, void 0, false, {
   fileName: "<stdin>",
-  lineNumber: 143,
+  lineNumber: 146,
   columnNumber: 51
 }));
