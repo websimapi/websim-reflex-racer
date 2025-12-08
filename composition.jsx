@@ -1,139 +1,157 @@
 import { jsxDEV } from "react/jsx-dev-runtime";
-import React from "react";
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import React, { useMemo, useRef, useEffect } from "react";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, random } from "remotion";
 const WIDTH = 400;
 const HEIGHT = 600;
 const PLAYER_SIZE = 30;
 const OBSTACLE_SIZE = 40;
-const PLAYER_Y = HEIGHT - 60;
-const PLAYER_SPEED = 300;
+const PLAYER_Y = HEIGHT - 80;
+const PLAYER_SPEED = 350;
 const ReplayComposition = ({ data }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  if (!data) return /* @__PURE__ */ jsxDEV(AbsoluteFill, { style: { backgroundColor: "#000", color: "red" }, children: "No Data" }, void 0, false, {
-    fileName: "<stdin>",
-    lineNumber: 16,
-    columnNumber: 21
-  });
-  const currentTime = frame / fps * 1e3;
-  let playerX = data.startState.playerX;
-  let currentDir = 0;
-  let lastCalcTime = 0;
-  for (let event of data.events) {
-    if (event.type === "input") {
-      if (event.t > currentTime) break;
-      const dt = (event.t - lastCalcTime) / 1e3;
-      playerX += currentDir * PLAYER_SPEED * dt;
-      playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, playerX));
-      currentDir = event.dir;
-      lastCalcTime = event.t;
-      if (event.px !== void 0) {
-        playerX = event.px;
+  const { fps, width, height } = useVideoConfig();
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (!canvasRef.current || !data) return;
+    const ctx = canvasRef.current.getContext("2d");
+    const currentTime = frame / fps * 1e3;
+    let playerX = data.startState.playerX;
+    let currentDir = 0;
+    let lastCalcTime = 0;
+    for (let event of data.events) {
+      if (event.type === "input") {
+        if (event.t > currentTime) break;
+        const dt = (event.t - lastCalcTime) / 1e3;
+        playerX += currentDir * PLAYER_SPEED * dt;
+        playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, playerX));
+        currentDir = event.dir;
+        lastCalcTime = event.t;
+        if (event.px !== void 0) playerX = event.px;
       }
     }
-  }
-  const dtFinal = (currentTime - lastCalcTime) / 1e3;
-  playerX += currentDir * PLAYER_SPEED * dtFinal;
-  playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, playerX));
-  let currentObstacles = data.startState.obstacles.map((o) => ({
-    ...o,
-    y: o.y + o.speed * (currentTime / 1e3)
-    // Move them forward by total elapsed time
-  }));
-  data.events.forEach((event) => {
-    if (event.type === "spawn" && event.t <= currentTime) {
-      const timeSinceSpawn = (currentTime - event.t) / 1e3;
-      currentObstacles.push({
-        ...event.data,
-        y: event.data.y + event.data.speed * timeSinceSpawn
-      });
+    const dtFinal = (currentTime - lastCalcTime) / 1e3;
+    playerX += currentDir * PLAYER_SPEED * dtFinal;
+    playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, playerX));
+    let currentObstacles = data.startState.obstacles.map((o) => ({
+      ...o,
+      y: o.y + o.speed * (currentTime / 1e3),
+      rotation: (o.rotation || 0) + (o.rotationSpeed || 2) * currentTime / 1e3
+    }));
+    data.events.forEach((event) => {
+      if (event.type === "spawn" && event.t <= currentTime) {
+        const timeSinceSpawn = (currentTime - event.t) / 1e3;
+        currentObstacles.push({
+          ...event.data,
+          y: event.data.y + event.data.speed * timeSinceSpawn,
+          rotation: (event.data.rotation || 0) + (event.data.rotationSpeed || 2) * timeSinceSpawn
+        });
+      }
+    });
+    ctx.fillStyle = "#050510";
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.strokeStyle = "rgba(40, 40, 80, 0.5)";
+    ctx.lineWidth = 1;
+    const gridSize = 50;
+    const offset = currentTime * 0.2 % 50;
+    ctx.beginPath();
+    for (let i = 0; i <= WIDTH; i += gridSize) {
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, HEIGHT);
     }
-  });
+    for (let i = -gridSize; i <= HEIGHT; i += gridSize) {
+      let y = i + offset;
+      if (y > HEIGHT) y -= HEIGHT + gridSize;
+      ctx.moveTo(0, y);
+      ctx.lineTo(WIDTH, y);
+    }
+    ctx.stroke();
+    const tilt = currentDir * 15;
+    ctx.save();
+    ctx.translate(playerX + PLAYER_SIZE / 2, PLAYER_Y + PLAYER_SIZE / 2);
+    ctx.rotate(tilt * Math.PI / 180);
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = "#0ff";
+    ctx.fillStyle = "#0ff";
+    ctx.beginPath();
+    ctx.moveTo(0, -PLAYER_SIZE / 2);
+    ctx.lineTo(PLAYER_SIZE / 2, PLAYER_SIZE / 2);
+    ctx.lineTo(0, PLAYER_SIZE / 2 - 5);
+    ctx.lineTo(-PLAYER_SIZE / 2, PLAYER_SIZE / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(0, -PLAYER_SIZE / 2 + 10);
+    ctx.lineTo(5, PLAYER_SIZE / 2 - 5);
+    ctx.lineTo(-5, PLAYER_SIZE / 2 - 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#f04";
+    ctx.fillStyle = "#f04";
+    currentObstacles.forEach((obs) => {
+      ctx.save();
+      ctx.translate(obs.x + OBSTACLE_SIZE / 2, obs.y + OBSTACLE_SIZE / 2);
+      ctx.rotate(obs.rotation || 0);
+      ctx.beginPath();
+      const size = OBSTACLE_SIZE / 2;
+      ctx.moveTo(0, -size);
+      ctx.lineTo(size, 0);
+      ctx.lineTo(0, size);
+      ctx.lineTo(-size, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#f04";
+      ctx.restore();
+    });
+  }, [frame, data, fps]);
   return /* @__PURE__ */ jsxDEV(AbsoluteFill, { style: { backgroundColor: "#111" }, children: [
-    /* @__PURE__ */ jsxDEV("svg", { width: "100%", height: "100%", style: { position: "absolute" }, children: [
-      /* @__PURE__ */ jsxDEV("pattern", { id: "grid", width: "50", height: "50", patternUnits: "userSpaceOnUse", children: /* @__PURE__ */ jsxDEV("path", { d: "M 50 0 L 0 0 0 50", fill: "none", stroke: "#222", strokeWidth: "1" }, void 0, false, {
+    /* @__PURE__ */ jsxDEV(
+      "canvas",
+      {
+        ref: canvasRef,
+        width: WIDTH,
+        height: HEIGHT,
+        style: { width: "100%", height: "100%" }
+      },
+      void 0,
+      false,
+      {
         fileName: "<stdin>",
-        lineNumber: 90,
-        columnNumber: 11
-      }) }, void 0, false, {
-        fileName: "<stdin>",
-        lineNumber: 89,
-        columnNumber: 9
-      }),
-      /* @__PURE__ */ jsxDEV("rect", { width: "100%", height: "100%", fill: "url(#grid)" }, void 0, false, {
-        fileName: "<stdin>",
-        lineNumber: 92,
-        columnNumber: 9
-      })
-    ] }, void 0, true, {
-      fileName: "<stdin>",
-      lineNumber: 88,
-      columnNumber: 7
-    }),
-    /* @__PURE__ */ jsxDEV("div", { style: {
-      position: "absolute",
-      top: PLAYER_Y + PLAYER_SIZE,
-      left: 0,
-      width: "100%",
-      height: 2,
-      backgroundColor: "#333"
+        lineNumber: 149,
+        columnNumber: 8
+      }
+    ),
+    frame >= 150 - 5 && /* @__PURE__ */ jsxDEV(AbsoluteFill, { style: {
+      backgroundColor: "white",
+      opacity: (frame - (150 - 5)) / 5
     } }, void 0, false, {
       fileName: "<stdin>",
-      lineNumber: 96,
-      columnNumber: 7
+      lineNumber: 158,
+      columnNumber: 10
     }),
     /* @__PURE__ */ jsxDEV("div", { style: {
       position: "absolute",
-      left: playerX,
-      top: PLAYER_Y,
-      width: PLAYER_SIZE,
-      height: PLAYER_SIZE,
-      backgroundColor: "#0af",
-      boxShadow: "0 0 10px #0af"
-    } }, void 0, false, {
-      fileName: "<stdin>",
-      lineNumber: 106,
-      columnNumber: 7
-    }),
-    currentObstacles.map((obs, i) => /* @__PURE__ */ jsxDEV("div", { style: {
-      position: "absolute",
-      left: obs.x,
-      top: obs.y,
-      width: OBSTACLE_SIZE,
-      height: OBSTACLE_SIZE,
-      backgroundColor: "#f04"
-    } }, obs.id || i, false, {
-      fileName: "<stdin>",
-      lineNumber: 118,
-      columnNumber: 11
-    })),
-    /* @__PURE__ */ jsxDEV("div", { style: {
-      position: "absolute",
-      top: 20,
-      left: 0,
+      bottom: 20,
       width: "100%",
       textAlign: "center",
-      fontFamily: "Courier New",
-      color: "rgba(255, 255, 255, 0.5)",
-      fontSize: "24px",
-      fontWeight: "bold"
-    }, children: "REPLAY" }, void 0, false, {
+      fontFamily: "'Orbitron', sans-serif",
+      color: "rgba(0, 255, 255, 0.7)",
+      fontSize: "20px",
+      letterSpacing: "2px"
+    }, children: "REPLAY MODE" }, void 0, false, {
       fileName: "<stdin>",
-      lineNumber: 129,
+      lineNumber: 165,
       columnNumber: 7
-    }),
-    frame >= 148 && /* @__PURE__ */ jsxDEV(AbsoluteFill, { style: {
-      backgroundColor: "white",
-      opacity: (frame - 148) / 2
-      // flash
-    } }, void 0, false, {
-      fileName: "<stdin>",
-      lineNumber: 145,
-      columnNumber: 9
     })
   ] }, void 0, true, {
     fileName: "<stdin>",
-    lineNumber: 86,
+    lineNumber: 148,
     columnNumber: 5
   });
 };

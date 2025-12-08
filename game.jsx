@@ -4,13 +4,16 @@ const WIDTH = 400;
 const HEIGHT = 600;
 const PLAYER_SIZE = 30;
 const OBSTACLE_SIZE = 40;
-const PLAYER_Y = HEIGHT - 60;
-const PLAYER_SPEED = 300;
-const SPAWN_RATE_INITIAL = 1500;
+const PLAYER_Y = HEIGHT - 80;
+const PLAYER_SPEED = 350;
+const SPAWN_RATE_INITIAL = 1400;
 function Game({ onGameOver }) {
   const canvasRef = useRef(null);
   const requestRef = useRef();
   const previousTimeRef = useRef();
+  const bgmRef = useRef(new Audio("bgm.mp3"));
+  const scoreAudioRef = useRef(new Audio("score.mp3"));
+  const crashAudioRef = useRef(new Audio("crash.mp3"));
   const state = useRef({
     isPlaying: true,
     score: 0,
@@ -18,21 +21,35 @@ function Game({ onGameOver }) {
     lastSpawnTime: 0,
     spawnRate: SPAWN_RATE_INITIAL,
     playerX: WIDTH / 2 - PLAYER_SIZE / 2,
+    playerTilt: 0,
+    // Visual tilt angle
     moveDir: 0,
     // -1 (left), 0 (idle), 1 (right)
     obstacles: [],
-    // { id, x, y, speed }
+    // { id, x, y, speed, type }
+    particles: [],
+    // { x, y, vx, vy, life, maxLife, color, size }
+    bgOffset: 0,
+    shake: 0,
+    // Screen shake intensity
     history: [],
-    // { t: timestamp, type: 'spawn'|'input'|'score', ...data }
-    // We also record snapshots periodically for easier replay entry points
     snapshots: []
-    // { t: timestamp, playerX: number, obstacles: [] }
   });
   const [displayScore, setDisplayScore] = useState(0);
   useEffect(() => {
+    bgmRef.current.loop = true;
+    bgmRef.current.volume = 0.4;
+    scoreAudioRef.current.volume = 0.3;
+    crashAudioRef.current.volume = 0.6;
+    const startAudio = () => {
+      bgmRef.current.play().catch((e) => console.log("Audio autoplay prevented", e));
+      window.removeEventListener("keydown", startAudio);
+      window.removeEventListener("touchstart", startAudio);
+    };
+    window.addEventListener("keydown", startAudio);
+    window.addEventListener("touchstart", startAudio);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const crashAudio = new Audio("crash.mp3");
     const handleKeyDown = (e) => {
       if (!state.current.isPlaying) return;
       if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
@@ -75,53 +92,96 @@ function Game({ onGameOver }) {
     canvas.addEventListener("touchstart", handleTouchStart);
     canvas.addEventListener("touchend", handleTouchEnd);
     const animate = (time) => {
-      if (!state.current.isPlaying) return;
+      if (!state.current.isPlaying && state.current.shake <= 0) return;
       if (previousTimeRef.current === void 0) {
         previousTimeRef.current = time;
         state.current.startTime = time;
       }
-      const deltaTime = time - previousTimeRef.current;
+      const deltaTime = Math.min(time - previousTimeRef.current, 50);
       const gameTime = time - state.current.startTime;
       previousTimeRef.current = time;
-      if (state.current.moveDir !== 0) {
-        const moveAmount = PLAYER_SPEED * deltaTime / 1e3 * state.current.moveDir;
-        state.current.playerX += moveAmount;
-        state.current.playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, state.current.playerX));
+      if (state.current.shake > 0) {
+        state.current.shake -= deltaTime * 0.05;
+        if (state.current.shake < 0) state.current.shake = 0;
       }
-      if (gameTime - state.current.lastSpawnTime > state.current.spawnRate) {
+      if (state.current.isPlaying) {
+        if (state.current.moveDir !== 0) {
+          const moveAmount = PLAYER_SPEED * deltaTime / 1e3 * state.current.moveDir;
+          state.current.playerX += moveAmount;
+          state.current.playerX = Math.max(0, Math.min(WIDTH - PLAYER_SIZE, state.current.playerX));
+          state.current.playerTilt = state.current.moveDir * 15;
+        } else {
+          state.current.playerTilt = 0;
+        }
+        if (gameTime % 2 < 1) {
+          state.current.particles.push({
+            x: state.current.playerX + PLAYER_SIZE / 2 + (Math.random() * 10 - 5),
+            y: PLAYER_Y + PLAYER_SIZE - 5,
+            vx: (Math.random() - 0.5) * 20,
+            vy: Math.random() * 50 + 100,
+            // Downward
+            life: 1,
+            maxLife: 1,
+            size: Math.random() * 3 + 2,
+            color: `rgba(0, 255, 255, 1)`
+          });
+        }
+      }
+      state.current.bgOffset = (state.current.bgOffset + deltaTime * 0.2) % 50;
+      if (state.current.isPlaying && gameTime - state.current.lastSpawnTime > state.current.spawnRate) {
         const speedMultiplier = 1 + state.current.score * 0.05;
         const newObstacle = {
           id: Math.random().toString(36).substr(2, 9),
           x: Math.random() * (WIDTH - OBSTACLE_SIZE),
           y: -OBSTACLE_SIZE,
-          speed: 200 * speedMultiplier
-          // Base speed + difficulty
+          speed: 250 * speedMultiplier,
+          rotation: 0,
+          rotationSpeed: (Math.random() - 0.5) * 4
         };
         state.current.obstacles.push(newObstacle);
         state.current.lastSpawnTime = gameTime;
-        state.current.spawnRate = Math.max(400, SPAWN_RATE_INITIAL - state.current.score * 30);
+        state.current.spawnRate = Math.max(350, SPAWN_RATE_INITIAL - state.current.score * 30);
         state.current.history.push({
           t: gameTime,
           type: "spawn",
           data: { ...newObstacle }
         });
       }
-      for (let i = state.current.obstacles.length - 1; i >= 0; i--) {
-        const obs = state.current.obstacles[i];
-        obs.y += obs.speed * deltaTime / 1e3;
-        if (state.current.playerX < obs.x + OBSTACLE_SIZE && state.current.playerX + PLAYER_SIZE > obs.x && PLAYER_Y < obs.y + OBSTACLE_SIZE && PLAYER_Y + PLAYER_SIZE > obs.y) {
-          endGame(gameTime);
-          crashAudio.play().catch(() => {
-          });
-          return;
-        }
-        if (obs.y > HEIGHT) {
-          state.current.obstacles.splice(i, 1);
-          state.current.score += 1;
-          setDisplayScore(state.current.score);
+      if (state.current.isPlaying) {
+        for (let i = state.current.obstacles.length - 1; i >= 0; i--) {
+          const obs = state.current.obstacles[i];
+          obs.y += obs.speed * deltaTime / 1e3;
+          obs.rotation += obs.rotationSpeed * deltaTime / 1e3;
+          const hitMargin = 6;
+          if (state.current.playerX + hitMargin < obs.x + OBSTACLE_SIZE - hitMargin && state.current.playerX + PLAYER_SIZE - hitMargin > obs.x + hitMargin && PLAYER_Y + hitMargin < obs.y + OBSTACLE_SIZE - hitMargin && PLAYER_Y + PLAYER_SIZE - hitMargin > obs.y + hitMargin) {
+            state.current.shake = 20;
+            spawnExplosion(state.current.playerX + PLAYER_SIZE / 2, PLAYER_Y + PLAYER_SIZE / 2);
+            crashAudioRef.current.play().catch(() => {
+            });
+            bgmRef.current.pause();
+            endGame(gameTime);
+            state.current.isPlaying = false;
+          }
+          if (obs.y > HEIGHT) {
+            state.current.obstacles.splice(i, 1);
+            state.current.score += 1;
+            setDisplayScore(state.current.score);
+            scoreAudioRef.current.currentTime = 0;
+            scoreAudioRef.current.play().catch(() => {
+            });
+          }
         }
       }
-      if (Math.floor(gameTime / 100) > state.current.snapshots.length) {
+      for (let i = state.current.particles.length - 1; i >= 0; i--) {
+        const p = state.current.particles[i];
+        p.x += p.vx * deltaTime / 1e3;
+        p.y += p.vy * deltaTime / 1e3;
+        p.life -= deltaTime / 1e3;
+        if (p.life <= 0) {
+          state.current.particles.splice(i, 1);
+        }
+      }
+      if (state.current.isPlaying && Math.floor(gameTime / 100) > state.current.snapshots.length) {
         state.current.snapshots.push({
           t: gameTime,
           playerX: state.current.playerX,
@@ -130,37 +190,107 @@ function Game({ onGameOver }) {
         });
       }
       draw(ctx, state.current);
-      requestRef.current = requestAnimationFrame(animate);
+      if (state.current.isPlaying || state.current.shake > 0 || state.current.particles.length > 0) {
+        requestRef.current = requestAnimationFrame(animate);
+      }
+    };
+    const spawnExplosion = (x, y) => {
+      for (let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 200 + 50;
+        state.current.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: Math.random() * 0.5 + 0.3,
+          maxLife: 0.8,
+          size: Math.random() * 4 + 2,
+          color: `rgba(255, 50, 50, 1)`
+          // Red/Orange
+        });
+      }
     };
     const draw = (ctx2, gameState) => {
-      ctx2.fillStyle = "#111";
+      ctx2.fillStyle = "#050510";
       ctx2.fillRect(0, 0, WIDTH, HEIGHT);
-      ctx2.strokeStyle = "#222";
-      ctx2.lineWidth = 1;
-      ctx2.beginPath();
-      for (let i = 0; i < HEIGHT; i += 50) {
-        ctx2.moveTo(0, i);
-        ctx2.lineTo(WIDTH, i);
+      ctx2.save();
+      if (gameState.shake > 0) {
+        const dx = (Math.random() - 0.5) * gameState.shake;
+        const dy = (Math.random() - 0.5) * gameState.shake;
+        ctx2.translate(dx, dy);
       }
-      for (let i = 0; i < WIDTH; i += 50) {
+      ctx2.strokeStyle = "rgba(40, 40, 80, 0.5)";
+      ctx2.lineWidth = 1;
+      const gridSize = 50;
+      const offset = gameState.bgOffset;
+      ctx2.beginPath();
+      for (let i = 0; i <= WIDTH; i += gridSize) {
         ctx2.moveTo(i, 0);
         ctx2.lineTo(i, HEIGHT);
       }
+      for (let i = -gridSize; i <= HEIGHT; i += gridSize) {
+        let y = i + offset;
+        if (y > HEIGHT) y -= HEIGHT + gridSize;
+        ctx2.moveTo(0, y);
+        ctx2.lineTo(WIDTH, y);
+      }
       ctx2.stroke();
-      ctx2.fillStyle = "#333";
-      ctx2.fillRect(0, PLAYER_Y + PLAYER_SIZE, WIDTH, 2);
-      ctx2.fillStyle = "#0af";
-      ctx2.shadowBlur = 10;
-      ctx2.shadowColor = "#0af";
-      ctx2.fillRect(gameState.playerX, PLAYER_Y, PLAYER_SIZE, PLAYER_SIZE);
-      ctx2.shadowBlur = 0;
+      gameState.particles.forEach((p) => {
+        ctx2.fillStyle = p.color.replace("1)", `${p.life / p.maxLife})`);
+        ctx2.beginPath();
+        ctx2.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx2.fill();
+      });
+      if (gameState.isPlaying) {
+        ctx2.save();
+        ctx2.translate(gameState.playerX + PLAYER_SIZE / 2, PLAYER_Y + PLAYER_SIZE / 2);
+        ctx2.rotate(gameState.playerTilt * Math.PI / 180);
+        ctx2.shadowBlur = 20;
+        ctx2.shadowColor = "#0ff";
+        ctx2.fillStyle = "#0ff";
+        ctx2.beginPath();
+        ctx2.moveTo(0, -PLAYER_SIZE / 2);
+        ctx2.lineTo(PLAYER_SIZE / 2, PLAYER_SIZE / 2);
+        ctx2.lineTo(0, PLAYER_SIZE / 2 - 5);
+        ctx2.lineTo(-PLAYER_SIZE / 2, PLAYER_SIZE / 2);
+        ctx2.closePath();
+        ctx2.fill();
+        ctx2.fillStyle = "#fff";
+        ctx2.beginPath();
+        ctx2.moveTo(0, -PLAYER_SIZE / 2 + 10);
+        ctx2.lineTo(5, PLAYER_SIZE / 2 - 5);
+        ctx2.lineTo(-5, PLAYER_SIZE / 2 - 5);
+        ctx2.closePath();
+        ctx2.fill();
+        ctx2.restore();
+      }
+      ctx2.shadowBlur = 15;
+      ctx2.shadowColor = "#f04";
       ctx2.fillStyle = "#f04";
       gameState.obstacles.forEach((obs) => {
-        ctx2.fillRect(obs.x, obs.y, OBSTACLE_SIZE, OBSTACLE_SIZE);
+        ctx2.save();
+        ctx2.translate(obs.x + OBSTACLE_SIZE / 2, obs.y + OBSTACLE_SIZE / 2);
+        ctx2.rotate(obs.rotation || 0);
+        ctx2.beginPath();
+        const size = OBSTACLE_SIZE / 2;
+        ctx2.moveTo(0, -size);
+        ctx2.lineTo(size, 0);
+        ctx2.lineTo(0, size);
+        ctx2.lineTo(-size, 0);
+        ctx2.closePath();
+        ctx2.fill();
+        ctx2.fillStyle = "#fff";
+        ctx2.beginPath();
+        ctx2.arc(0, 0, size * 0.4, 0, Math.PI * 2);
+        ctx2.fill();
+        ctx2.fillStyle = "#f04";
+        ctx2.restore();
       });
+      ctx2.shadowBlur = 0;
+      ctx2.restore();
     };
     const endGame = (endTime) => {
-      state.current.isPlaying = false;
       const CLIP_DURATION = 5e3;
       const startTime = Math.max(0, endTime - CLIP_DURATION);
       let startState = {
@@ -228,7 +358,7 @@ function Game({ onGameOver }) {
           false,
           {
             fileName: "<stdin>",
-            lineNumber: 296,
+            lineNumber: 456,
             columnNumber: 7
           },
           this
@@ -254,7 +384,7 @@ function Game({ onGameOver }) {
           true,
           {
             fileName: "<stdin>",
-            lineNumber: 302,
+            lineNumber: 462,
             columnNumber: 7
           },
           this
@@ -277,7 +407,7 @@ function Game({ onGameOver }) {
           false,
           {
             fileName: "<stdin>",
-            lineNumber: 315,
+            lineNumber: 475,
             columnNumber: 7
           },
           this
@@ -288,7 +418,7 @@ function Game({ onGameOver }) {
     true,
     {
       fileName: "<stdin>",
-      lineNumber: 289,
+      lineNumber: 449,
       columnNumber: 5
     },
     this

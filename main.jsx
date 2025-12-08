@@ -36,12 +36,12 @@ const App = () => {
       columnNumber: 9
     }),
     view === "summary" && /* @__PURE__ */ jsxDEV("div", { style: { textAlign: "center", zIndex: 10 }, children: [
-      /* @__PURE__ */ jsxDEV("h1", { style: { fontSize: "3rem", marginBottom: "0.5rem", color: "#fff" }, children: "CRASHED" }, void 0, false, {
+      /* @__PURE__ */ jsxDEV("h1", { style: { fontSize: "4rem", margin: "0", color: "#f04", textShadow: "0 0 20px #f04", fontFamily: "'Orbitron', sans-serif" }, children: "CRITICAL FAILURE" }, void 0, false, {
         fileName: "<stdin>",
         lineNumber: 45,
         columnNumber: 11
       }),
-      /* @__PURE__ */ jsxDEV("p", { style: { fontSize: "1.5rem", marginBottom: "2rem" }, children: [
+      /* @__PURE__ */ jsxDEV("p", { style: { fontSize: "2rem", margin: "1rem 0 2rem", color: "#0ff", fontFamily: "'Rajdhani', sans-serif" }, children: [
         "SCORE: ",
         score
       ] }, void 0, true, {
@@ -49,21 +49,23 @@ const App = () => {
         lineNumber: 46,
         columnNumber: 11
       }),
-      /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", flexDirection: "column", gap: "1rem" }, children: [
+      /* @__PURE__ */ jsxDEV("div", { style: { display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }, children: [
         /* @__PURE__ */ jsxDEV(
           "button",
           {
             onClick: handleRestart,
             style: {
-              padding: "1rem 2rem",
-              fontSize: "1.2rem",
-              background: "transparent",
-              border: "2px solid #fff",
+              padding: "1rem 3rem",
+              fontSize: "1.5rem",
+              background: "rgba(0,0,0,0.5)",
+              border: "2px solid #0ff",
+              boxShadow: "0 0 15px #0ff",
               color: "#fff",
               cursor: "pointer",
-              fontFamily: "inherit"
+              fontFamily: "'Orbitron', sans-serif",
+              textTransform: "uppercase"
             },
-            children: "TRY AGAIN"
+            children: "Re-Initialize"
           },
           void 0,
           false,
@@ -73,34 +75,37 @@ const App = () => {
             columnNumber: 13
           }
         ),
-        score > 25 && replayData && /* @__PURE__ */ jsxDEV(
+        score > 10 && replayData && /* @__PURE__ */ jsxDEV(
           "button",
           {
             onClick: handleGenerateVideo,
             style: {
+              marginTop: "1rem",
               padding: "1rem 2rem",
               fontSize: "1.2rem",
-              background: "#fff",
-              border: "2px solid #fff",
-              color: "#000",
+              background: "#f04",
+              border: "none",
+              boxShadow: "0 0 20px #f04",
+              color: "#fff",
               fontWeight: "bold",
               cursor: "pointer",
-              fontFamily: "inherit",
-              animation: "pulse 2s infinite"
+              fontFamily: "'Orbitron', sans-serif",
+              animation: "pulse 2s infinite",
+              textTransform: "uppercase"
             },
-            children: "GENERATE VIDEO CLIP"
+            children: "Save Replay"
           },
           void 0,
           false,
           {
             fileName: "<stdin>",
-            lineNumber: 65,
+            lineNumber: 67,
             columnNumber: 15
           }
         ),
-        score <= 25 && /* @__PURE__ */ jsxDEV("p", { style: { opacity: 0.5, fontSize: "0.8rem" }, children: "Score > 25 to unlock video replay" }, void 0, false, {
+        score <= 10 && /* @__PURE__ */ jsxDEV("p", { style: { opacity: 0.7, fontSize: "1rem", color: "#aaa" }, children: "Score > 10 to unlock replay system" }, void 0, false, {
           fileName: "<stdin>",
-          lineNumber: 84,
+          lineNumber: 89,
           columnNumber: 15
         })
       ] }, void 0, true, {
@@ -137,7 +142,7 @@ const App = () => {
         false,
         {
           fileName: "<stdin>",
-          lineNumber: 94,
+          lineNumber: 99,
           columnNumber: 11
         }
       ),
@@ -159,24 +164,24 @@ const App = () => {
         false,
         {
           fileName: "<stdin>",
-          lineNumber: 111,
+          lineNumber: 116,
           columnNumber: 11
         }
       )
     ] }, void 0, true, {
       fileName: "<stdin>",
-      lineNumber: 93,
+      lineNumber: 98,
       columnNumber: 9
     }),
     /* @__PURE__ */ jsxDEV("style", { children: `
         @keyframes pulse {
-          0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
-          70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
-          100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+          0% { box-shadow: 0 0 0 0 rgba(255, 0, 68, 0.7); }
+          70% { box-shadow: 0 0 0 15px rgba(255, 0, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(255, 0, 68, 0); }
         }
       ` }, void 0, false, {
       fileName: "<stdin>",
-      lineNumber: 127,
+      lineNumber: 132,
       columnNumber: 7
     })
   ] }, void 0, true, {
@@ -187,6 +192,6 @@ const App = () => {
 };
 createRoot(document.getElementById("app")).render(/* @__PURE__ */ jsxDEV(App, {}, void 0, false, {
   fileName: "<stdin>",
-  lineNumber: 138,
+  lineNumber: 143,
   columnNumber: 51
 }));
